@@ -1,1 +1,2 @@
-
+print"Hello, World!"
+== The above prints "Hello, World" to the console
