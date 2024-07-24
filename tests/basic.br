@@ -1,1 +1,4 @@
-
+var PI = 3.141592653
+print "The value of PI is roughly equal to"
+print PI
+== Prints the rounded value of PI to the console
