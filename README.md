@@ -18,10 +18,14 @@ print "Hello, World!"
 2. **PI**
 ```burst
 var PI = 3.141592653
-print "The rough value of PI is"
-print PI
+print "The rough value of PI is " + PI
 ```
 3. **Comments**
 ```burst
 == I am a comment!
+```
+4. **Prompt**
+```burst
+prompt name = "What is your name?
+print "Hello, " + name
 ```
