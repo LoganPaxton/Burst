@@ -1,5 +1,5 @@
 /*
-BURST - COMPILER / TOKENIZER - Version 1.2.1
+BURST - COMPILER / TOKENIZER - Version 1.2.2
 
 You hear this a lot, but I'll say it anyways 
 DO NOT CONFIGURE UNLESS YOU KNOW WHAT YOU ARE DOING!
