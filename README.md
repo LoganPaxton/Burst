@@ -2,6 +2,9 @@
 > [!WARNING]
 > Burst is still in its very early stages, so expect bugs!
 
+## Credits
+**[@SalladShooter](https://github.com/SalladShooter)** - Prompts / Input
+
 ## Docs
 
 1. **Installation:**
