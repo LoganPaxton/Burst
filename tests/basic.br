@@ -13,3 +13,6 @@ print PI
 var PI = 3.141592653
 
 ? PI = "3.141592653": print "PI is equal to 3.141592653" :> print "What... How is PI not 3.141592653??"
+
+prompt name = "What is your name?
+print "Hello, " + name
