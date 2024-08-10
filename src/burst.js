@@ -1,4 +1,19 @@
+/*
+BURST - COMPILER / TOKENIZER - Version 1.2.1
+
+You hear this a lot, but I'll say it anyways 
+DO NOT CONFIGURE UNLESS YOU KNOW WHAT YOU ARE DOING!
+
+*/
+
+// CONFIG START
+
+const filePath = "main.br" // Set this to the Burst file you want to run.
+
+// CONFIG END
+
 const fs = require('fs');
+const readline = require('readline');
 
 const token_types = {
   print: "Print",
@@ -14,7 +29,8 @@ const token_types = {
   if: "If",
   exactly_equals: "Exactly_Equals",
   then: "Then",
-  else: "Else"
+  else: "Else",
+  prompt: "Prompt" // Add prompt token type here
 };
 
 let tokens = [];
@@ -29,176 +45,136 @@ function tokenize(code = "") {
       continue; // Skip comments
     }
 
-    let matched = false;
-
-    if (line.startsWith("print")) {
-      matched = true;
+    // Regular expression to check for print statements
+    const printMatch = /^print\s+(.*)$/.exec(line);
+    if (printMatch) {
       tokenList.push(token_types.print);
-      const stringMatch = line.match(/"[^"]*"/);
-      if (stringMatch !== null) {
-        const string_value = stringMatch[0].slice(1, -1); // Remove surrounding quotes
-        tokenList.push("String_Value: ", string_value);
-      } else {
-        const varName = line.split("print")[1].trim();
-        tokenList.push(token_types.print_var, varName);
-      }
-    }
-
-    if (line.startsWith("var")) {
-      matched = true;
-      let [varName, varValue] = line.slice(4).trim().split("=");
-      varName = varName.trim();
-      varValue = varValue.trim();
-      tokenList.push(token_types.variable, varName, token_types.equals, varValue);
-    }
-
-    if (line.includes("+")) {
-      matched = true;
-      let [varName, addValue] = line.split("+").map(part => part.trim());
-      tokenList.push(token_types.add, varName, addValue);
-    }
-
-    if (line.includes("-")) {
-      matched = true;
-      let [varName, subValue] = line.split("-").map(part => part.trim());
-      tokenList.push(token_types.subtract, varName, subValue);
-    }
-
-    if (line.startsWith("?")) {
-      matched = true;
-      // Parse the if statement
-      const conditionMatch = line.match(/^\?\s*([^=\s]+)\s*(=|===)\s*([^:\s]+)\s*:\s*(.*?)\s*(?:\s*:\>\s*(.*))?$/);
-      if (conditionMatch) {
-        const [, arg1, op, arg2, thenPart, elsePart] = conditionMatch;
-        tokenList.push(token_types.if, arg1, op, arg2, token_types.then, thenPart);
-        if (elsePart) {
-          tokenList.push(token_types.else, elsePart);
+      const parts = printMatch[1].split("+").map(part => part.trim());
+      for (const part of parts) {
+        if (part.startsWith('"') && part.endsWith('"')) {
+          // This is a string
+          const stringValue = part.slice(1, -1); // Remove quotes
+          tokenList.push("String_Value: ", stringValue);
+        } else {
+          // This is a variable or expression
+          tokenList.push(token_types.print_var, part);
         }
-      } else {
-        console.error("Invalid if statement format", line);
       }
+      continue;
     }
 
+    // Match variable declarations
+    if (line.startsWith("var")) {
+      const varDeclParts = line.split("=");
+      if (varDeclParts.length === 2) {
+        const varName = varDeclParts[0].trim().slice(4); // Get variable name
+        const varValue = varDeclParts[1].trim(); // Get the value after '='
+
+        if (varValue.startsWith('"') && varValue.endsWith('"')) {
+          tokenList.push(token_types.variable, varName, token_types.equals, varValue.slice(1, -1)); // Store without quotes
+        } else {
+          tokenList.push(token_types.variable, varName, token_types.equals, varValue);
+        }
+      }
+      continue;
+    }
+
+    // Handle prompt command with message in the same line
+    if (line.startsWith("prompt")) {
+      const parts = line.split("=");
+      const varName = parts[0].split(" ")[1].trim(); // Get the variable name
+      const message = parts[1].trim().replace(/^"(.*)"$/, '$1'); // Extract the message after '='
+      tokenList.push(token_types.prompt, varName, message);
+      continue;
+    }
+
+    // Handle empty lines and whitespace
     if (line.length === 0) {
-      matched = true;
       tokenList.push(token_types.whitespace);
+      continue;
     }
 
-    if (!matched) {
-      console.error("Unknown token", line);
-    }
+    console.error("Unknown statement:", line); // Handle unknown lines
   }
   return tokenList;
 }
 
-function parse(tokens = []) {
+// Set up readline interface
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+// Function to wait for user input
+function askQuestion(query) {
+  return new Promise((resolve) => rl.question(query, resolve));
+}
+
+async function parse(tokens = []) {
   let i = 0;
   while (i < tokens.length) {
+    if (tokens[i] === token_types.prompt) {
+      const varName = tokens[i + 1];
+      const message = tokens[i + 2];
+      const answer = await askQuestion(`${message} `); // Wait for user input
+      variables[varName] = answer; // Set the variable to user input
+      i += 3; // Move past the prompt token, variable name, and message
+      continue; // Skip to the next iteration
+    }
+
     if (tokens[i] === token_types.print) {
-      if (tokens[i + 1] === "String_Value: ") {
-        console.log(tokens[i + 2]);
-        i += 3;
-      } else if (tokens[i + 1] === token_types.print_var) {
-        const varName = tokens[i + 2];
-        if (variables.hasOwnProperty(varName)) {
-          console.log(variables[varName]);
-        } else {
-          console.error("Undefined variable:", varName);
+      let output = '';
+      i += 1;
+
+      // Collecting strings and variables for concatenation
+      while (i < tokens.length && (tokens[i] === "String_Value: " || tokens[i] === token_types.print_var)) {
+        if (tokens[i] === "String_Value: ") {
+          output += tokens[i + 1]; // Concatenate string value
+          i += 2;
+        } else if (tokens[i] === token_types.print_var) {
+          const varName = tokens[i + 1];
+          if (variables.hasOwnProperty(varName)) {
+            output += variables[varName]; // Concatenate variable value
+          } else {
+            console.error("Undefined variable:", varName);
+          }
+          i += 2;
         }
-        i += 3;
       }
+
+      console.log(output); // Print the final concatenated output
     } else if (tokens[i] === token_types.variable) {
       const varName = tokens[i + 1];
       const varValue = tokens[i + 3];
-      variables[varName] = varValue.startsWith('"') ? varValue.slice(1, -1) : varValue;
+      variables[varName] = varValue.startsWith('"') ? varValue : varValue; // Store as string if in quotes
       i += 4;
-    } else if (tokens[i] === token_types.add) {
-      const varName = tokens[i + 1];
-      const valueToAdd = tokens[i + 2];
-      if (variables.hasOwnProperty(varName)) {
-        const currentValue = parseFloat(variables[varName]);
-        const addValue = parseFloat(valueToAdd);
-        if (!isNaN(currentValue) && !isNaN(addValue)) {
-          variables[varName] = (currentValue + addValue).toString();
-        } else {
-          console.error("Cannot add non-numeric values");
-        }
-      } else {
-        console.error("Undefined variable:", varName);
-      }
-      i += 3;
-    } else if (tokens[i] === token_types.subtract) {
-      const varName = tokens[i + 1];
-      const valueToSub = tokens[i + 2];
-      if (variables.hasOwnProperty(varName)) {
-        const currentValue = parseFloat(variables[varName]);
-        const subValue = parseFloat(valueToSub);
-        if (!isNaN(currentValue) && !isNaN(subValue)) {
-          variables[varName] = (currentValue - subValue).toString();
-        } else {
-          console.error("Cannot subtract non-numeric values");
-        }
-      } else {
-        console.error("Undefined variable:", varName);
-      }
-      i += 3;
     } else if (tokens[i] === token_types.whitespace) {
       i += 1;
-    } else if (tokens[i] === token_types.if) {
-      const arg1 = tokens[i + 1];
-      const op = tokens[i + 2];
-      const arg2 = tokens[i + 3];
-      const thenPart = tokens[i + 5];
-      const elsePart = tokens[i + 7];
-
-      // Handle the if condition
-      let conditionMet = false;
-      if (op === "=") {
-        conditionMet = (arg1.includes('"') ? arg1.slice(1, -1) : variables[arg1]) == (arg2.includes('"') ? arg2.slice(1, -1) : arg2);
-      } else if (op === "===") {
-        conditionMet = (arg1.includes('"') ? arg1.slice(1, -1) : variables[arg1]) === (arg2.includes('"') ? arg2.slice(1, -1) : arg2);
-      }
-      
-      if (conditionMet) {
-        // Execute then part
-        //console.log(`Condition met. Executing then part: ${thenPart}`);
-        const thenTokens = tokenize(thenPart);
-        parse(thenTokens);
-      } else if (elsePart) {
-        // Execute else part
-        //console.log(`Condition not met. Executing else part: ${elsePart}`);
-        const elseTokens = tokenize(elsePart);
-        parse(elseTokens);
-      }
-
-      i += 8; // Adjust based on the number of tokens processed
     } else {
+      console.error("Unknown token in parse:", tokens[i]);
       i += 1;
     }
   }
-  // Debug print statement to see variables
-  //console.log("Variables:", variables);
 }
 
-if (process.argv.length < 3) {
-  console.error("Usage: node src/burst.js <file_path>");
-  process.exit(1);
-}
-
-const filePath = process.argv[2];
-
-fs.readFile(filePath, (err, data) => {
+// Main program execution
+fs.readFile(filePath, async (err, data) => {
   if (err) {
     throw err;
   } else {
     tokens = tokenize(data.toString());
-    parse(tokens);
+    await parse(tokens); // Wait for the complete execution of all tokens
+    rl.close(); // Close the readline interface after processing
   }
 });
 
 /*
 DEBUGGING
-const code = `print "Hello, World!"\nvar x = 10\nprint x\nx + 5\nprint x`;
+const code = `prompt name = "What is your name?"
+print "Hello, " + name
+var result = "Final message: " + name
+print result
+`;
 tokens = tokenize(code);
 parse(tokens);
 */
