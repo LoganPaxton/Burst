@@ -10,6 +10,9 @@ Burst is a new coding language made in July of 2024. I was a project I decided t
    To install, run `git clone https://github.com/LoganPaxton/Burst.git`,
    Then, run `cd Burst && cd tests`
    Now, you can modify the `basic.br` file!
+2. **Running:**
+   To run your basic.br file, run this command `cd .. && cd src`
+   Then, run `python3 burst.py` or, `python3 burst.min.py`
 
 
 ### Examples
@@ -24,14 +27,13 @@ print "Hello, World!"
 2. **PI**
 ```burst
 var PI = 3.141592653
-print "The rough value of PI is " + PI
-```
-3. **Comments**
-```burst
-== I am a comment!
+print("The rough value of PI is " + PI)
 ```
 4. **Prompt**
 ```burst
-prompt name = "What is your name?
-print "Hello, " + name
+var name = prompt("What is your name?)
+print(i"Hello, {name}")
 ```
+
+## Migration
+To migrate to the latest 2.0.0 version, please change your current code to match the above in the documentation.
