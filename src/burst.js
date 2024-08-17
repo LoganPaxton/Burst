@@ -1,11 +1,13 @@
 /*
 BURST - COMPILER / TOKENIZER - Version 1.2.2
 
+THIS HAS BEEN DEPRECAITED USE THE burst.py FILE TO RUN YOUR CODE!
+
 You hear this a lot, but I'll say it anyways 
 DO NOT CONFIGURE UNLESS YOU KNOW WHAT YOU ARE DOING!
 
 */
-
+/*
 // CONFIG START
 
 const filePath = "main.br" // Set this to the Burst file you want to run.
@@ -167,6 +169,8 @@ fs.readFile(filePath, async (err, data) => {
     rl.close(); // Close the readline interface after processing
   }
 });
+*/
+
 
 /*
 DEBUGGING
