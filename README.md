@@ -17,7 +17,7 @@ Burst is a new coding language made in July of 2024. I was a project I decided t
 
 ### Examples
 
-> [!IMPORTANT]
+> [!CAUTION]
 > Burst 2.0.0 has **BACKWARDS INCOMPATABLE** changes! To migrate to 2.0.0, please read the [Migration Guide](#Migration)
 
 1. **Hello, World!**
