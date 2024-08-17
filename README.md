@@ -1,9 +1,8 @@
 # Burst
-> [!WARNING]
-> Burst is still in its very early stages, so expect bugs!
+Burst is a new coding language made in July of 2024. I was a project I decided to take on for one reason, simplicity. Most coding languages these days are either fast and complex (Steep learning curve) or slow and simple (Shallower learning curve). Most "simple" coding languages like Python, or Javascript are high-level languages, and you can't really do stuff like you would in C/C++/C# which are low-level.
 
 ## Credits
-**[@SalladShooter](https://github.com/SalladShooter)** - Prompts / Input
+**[@SalladShooter](https://github.com/SalladShooter)** - Prompts / Input (Javascript Version)
 
 ## Docs
 
@@ -14,6 +13,10 @@
 
 
 ### Examples
+
+> [!IMPORTANT]
+> Burst 2.0.0 has **BACKWARDS INCOMPATABLE** changes! To migrate to 2.0.0, please read the [Migration Guide](#Migration)
+
 1. **Hello, World!**
 ```burst
 print "Hello, World!"
