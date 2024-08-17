@@ -114,7 +114,7 @@ class Interpreter:
 
 
 # Read and process code
-with open('main.br') as file:
+with open('/tests/basic.br') as file:
   code = file.readlines()
 
 if not code:
