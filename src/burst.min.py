@@ -51,7 +51,7 @@ class P:
 			try:B=L(A)
 			except C:B=A
 		D.variables[node.var_name]=B
-with open('main.br')as Q:J=Q.readlines()
+with open('/tests/basic.br')as Q:J=Q.readlines()
 if not J:exit()
 R=P()
 for S in J:
