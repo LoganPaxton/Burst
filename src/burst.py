@@ -1,129 +1,175 @@
 import re
 
+def importFile(e: str) -> str:
+    with open(e, "r", encoding="utf-8") as file:
+        return file.read()
 
-class ASTNode:
-  pass
+def parse(e: str) -> list:
+    tokens = []
+    lines = e.split("\n")
+    # Patterns for different statements
+    printPattern = re.compile(r'print\("([^"]*)"\);', re.IGNORECASE)
+    variablePattern = re.compile(r'var\s([A-Za-z_][A-Za-z0-9_]*)\s=\s"([^"]*)";', re.IGNORECASE)
+    printVarPattern = re.compile(r'print\(([A-Za-z_][A-Za-z0-9_]*)\);', re.IGNORECASE)
+    interpolatedPattern = re.compile(r'print\(i"([^"]*)"\);', re.IGNORECASE)
+    promptPattern = re.compile(r'var\s([A-Za-z_][A-Za-z0-9_]*)\s=\sprompt\("([^"]*)"\);', re.IGNORECASE)
 
+    for i in lines:
+        # Ignore comments
+        i = i.strip()
+        if i.startswith("#"):
+            continue
 
-class VariableDeclaration(ASTNode):
+        # Match print statements with strings
+        printMatch = re.match(printPattern, i)
+        if printMatch:
+            tokens.append("print")
+            tokens.append("openParen")
+            tokens.append("quoteOpen")
+            tokens.append(printMatch.group(1))  # Extract string inside quotes
+            tokens.append("quoteClose")
+            tokens.append("closeParen")
+            tokens.append("semicolon")
+            continue
 
-  def __init__(self, name, initializer):
-    self.name = name
-    self.initializer = initializer
+        # Match variable declarations
+        variableMatch = re.match(variablePattern, i)
+        if variableMatch:
+            tokens.append("varKeyword")
+            tokens.append(variableMatch.group(1))  # Variable name
+            tokens.append("equals")
+            tokens.append("quoteOpen")
+            tokens.append(variableMatch.group(2))  # Variable value
+            tokens.append("quoteClose")
+            tokens.append("semicolon")
+            continue
 
+        # Match print statements with variables
+        printVarMatch = re.match(printVarPattern, i)
+        if printVarMatch:
+            tokens.append("print")
+            tokens.append("openParen")
+            tokens.append("variableName")
+            tokens.append(printVarMatch.group(1))  # Variable name
+            tokens.append("closeParen")
+            tokens.append("semicolon")
+            continue
 
-class PrintStatement(ASTNode):
+        # Match interpolated print statements
+        interpolatedMatch = re.match(interpolatedPattern, i)
+        if interpolatedMatch:
+            tokens.append("print")
+            tokens.append("openParen")
+            tokens.append("interpolated")
+            tokens.append(interpolatedMatch.group(1))  # Full interpolated string
+            tokens.append("quoteClose")
+            tokens.append("closeParen")
+            tokens.append("semicolon")
+            continue
 
-  def __init__(self, expression, interpolate=False):
-    self.expression = expression
-    self.interpolate = interpolate
+        # Match variable declarations with prompt
+        promptMatch = re.match(promptPattern, i)
+        if promptMatch:
+            tokens.append("varKeyword")
+            tokens.append(promptMatch.group(1))  # Variable name
+            tokens.append("equals")
+            tokens.append("prompt")
+            tokens.append("openParen")
+            tokens.append("quoteOpen")
+            tokens.append(promptMatch.group(2))  # Prompt message
+            tokens.append("quoteClose")
+            tokens.append("closeParen")
+            tokens.append("semicolon")
+            continue
 
+    return tokens
 
-class InputStatement(ASTNode):
+def compile(tokens: list) -> None:
+    variables = {}  # Dictionary to store variables and their values
+    i = 0
+    while i < len(tokens):
+        if tokens[i] == "print":
+            # Handle print statements
+            if (
+                i + 6 < len(tokens) and
+                tokens[i + 1] == "openParen" and
+                tokens[i + 2] == "quoteOpen" and
+                tokens[i + 4] == "quoteClose" and
+                tokens[i + 5] == "closeParen" and
+                tokens[i + 6] == "semicolon"
+            ):
+                # Print string literal
+                print(tokens[i + 3])
+                i += 7
+            elif (
+                i + 5 < len(tokens) and
+                tokens[i + 1] == "openParen" and
+                tokens[i + 2] == "variableName" and
+                tokens[i + 4] == "closeParen" and
+                tokens[i + 5] == "semicolon"
+            ):
+                # Print variable value
+                var_name = tokens[i + 3]
+                if var_name in variables:
+                    print(variables[var_name])
+                else:
+                    print(f"Error: Undefined variable '{var_name}'")
+                i += 6
+            elif (
+                i + 6 < len(tokens) and
+                tokens[i + 1] == "openParen" and
+                tokens[i + 2] == "interpolated" and
+                tokens[i + 4] == "quoteClose" and
+                tokens[i + 5] == "closeParen" and
+                tokens[i + 6] == "semicolon"
+            ):
+                # Print interpolated string
+                interpolated_string = tokens[i + 3]
+                interpolated_value = interpolated_string
 
-  def __init__(self, prompt, var_name):
-    self.prompt = prompt
-    self.var_name = var_name
+                # Replace variables in the string
+                for var_name in variables:
+                    placeholder = f"${{{var_name}}}"
+                    if placeholder in interpolated_string:
+                        interpolated_value = interpolated_value.replace(placeholder, variables[var_name])
 
-
-def tokenize(code):
-  # Improved regex to handle floats as single tokens
-  tokens = re.findall(r'\b\w+\b|[=()]|i?\"[^\"]*\"|\d*\.\d+|\d+', code)
-  #print("Tokens:", tokens)  # Debug: Print tokens
-  return tokens
-
-
-def parse(tokens):
-  if len(tokens) >= 4 and tokens[0].lower() == "var" and tokens[2] == "=":
-    if tokens[3].lower() == "prompt":
-      # Extract prompt text which is enclosed in parentheses
-      prompt_tokens = tokens[4:-1]  # Exclude 'prompt' and parentheses
-      prompt_text = " ".join(prompt_tokens).strip().strip('"')
-      return InputStatement(prompt_text, tokens[1])
-    else:
-      name = tokens[1]
-      initializer = parse_initializer(" ".join(
-          tokens[3:]))  # Concatenate tokens
-      return VariableDeclaration(name, initializer)
-  elif len(tokens) == 5 and tokens[0].lower(
-  ) == 'print' and tokens[1] == '(' and tokens[4] == ')':
-    if tokens[2] == 'i' and tokens[3].startswith('"') and tokens[3].endswith(
-        '"'):
-      expression = tokens[3][1:-1]  # Remove the quotes
-      return PrintStatement(expression, interpolate=True)
-    elif tokens[2].startswith('"') and tokens[2].endswith('"'):
-      expression = tokens[2][1:-1]  # Remove the quotes
-      return PrintStatement(expression)
-    else:
-      raise RuntimeError("Invalid Syntax")
-  else:
-    raise RuntimeError("Invalid Syntax")
-
-
-def parse_initializer(value):
-  """Parse the initializer value and return the correct type."""
-  value = value.strip()
-  if value.startswith('"') and value.endswith('"'):
-    return value[1:-1]  # Remove the quotes and return as string
-  value = value.replace(' ', '')  # Remove spaces for number parsing
-  try:
-    return int(value)
-  except ValueError:
-    try:
-      return float(value)
-    except ValueError:
-      raise RuntimeError("Invalid initializer value")
-
-
-class Interpreter:
-
-  def __init__(self):
-    self.variables = {}
-
-  def visit(self, node):
-    if isinstance(node, VariableDeclaration):
-      self.visit_variable_declaration(node)
-    elif isinstance(node, PrintStatement):
-      self.visit_print_statement(node)
-    elif isinstance(node, InputStatement):
-      self.visit_input_statement(node)
-
-  def visit_variable_declaration(self, node):
-    # Store the value as is, whether it's a string, number, or float
-    self.variables[node.name] = node.initializer
-
-  def visit_print_statement(self, node):
-    expression = node.expression
-    if node.interpolate:
-      # Replace variables in the string
-      for var_name, var_value in self.variables.items():
-        expression = expression.replace(f"{{{var_name}}}", str(var_value))
-    print(expression)
-
-  def visit_input_statement(self, node):
-    user_input = input(node.prompt)
-    # Try to convert user input to int or float if possible
-    try:
-      value = int(user_input)
-    except ValueError:
-      try:
-        value = float(user_input)
-      except ValueError:
-        value = user_input
-    self.variables[node.var_name] = value
-
-
-# Read and process code
-with open('/tests/basic.br') as file:
-  code = file.readlines()
-
-if not code:
-  exit()
-
-interpreter = Interpreter()
-
-for line in code:
-  tokens = tokenize(line.strip())
-  if tokens:
-    ast = parse(tokens)
-    interpreter.visit(ast)
+                print(interpolated_value)
+                i += 7
+            else:
+                print("Syntax error in print statement.")
+                break
+        elif tokens[i] == "varKeyword":
+            # Handle variable declarations
+            if (
+                i + 6 < len(tokens) and
+                tokens[i + 2] == "equals" and
+                tokens[i + 3] == "quoteOpen" and
+                tokens[i + 5] == "quoteClose" and
+                tokens[i + 6] == "semicolon"
+            ):
+                var_name = tokens[i + 1]
+                var_value = tokens[i + 4]
+                variables[var_name] = var_value  # Store the variable and its value
+                i += 7
+            # Handle variable declarations with prompt
+            elif (
+                i + 9 < len(tokens) and
+                tokens[i + 2] == "equals" and
+                tokens[i + 3] == "prompt" and
+                tokens[i + 4] == "openParen" and
+                tokens[i + 5] == "quoteOpen" and
+                tokens[i + 7] == "quoteClose" and
+                tokens[i + 8] == "closeParen" and
+                tokens[i + 9] == "semicolon"
+            ):
+                var_name = tokens[i + 1]
+                prompt_message = tokens[i + 6]
+                user_input = input(prompt_message + " ")  # Display prompt and get user input
+                variables[var_name] = user_input
+                i += 10
+            else:
+                print("Syntax error in variable declaration.")
+                break
+        else:
+            print(f"Unexpected token: {tokens[i]}")
+            break
