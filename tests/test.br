@@ -1,0 +1,20 @@
+# This is a file for system testing. I wouldn't recommend modifing it.
+
+# Printing Test
+print("Printing Test:");
+print("Passed");
+
+# Variable and Printing Variable Test
+print("Variable and Printing Variable Test:");
+var good = "Passed";
+print(good);
+
+# String Interpolation Test
+print("Interpolation Test:");
+var inter = "Passed";
+print(i"${inter}");
+
+# Prompt Test
+print("Prompt Test: ");
+var promptTest = prompt("Pass?");
+print(promptTest);
