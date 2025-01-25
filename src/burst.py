@@ -13,6 +13,7 @@ def parse(e: str) -> list:
     printVarPattern = re.compile(r'print\(([A-Za-z_][A-Za-z0-9_]*)\);', re.IGNORECASE)
     interpolatedPattern = re.compile(r'print\(i"([^"]*)"\);', re.IGNORECASE)
     promptPattern = re.compile(r'var\s([A-Za-z_][A-Za-z0-9_]*)\s=\sprompt\("([^"]*)"\);', re.IGNORECASE)
+    ifPattern = re.compile(r'if\s\((\w+)\s(==|!=|===|<|>)\s(\w+)\)\s\{(.*?)\}', re.IGNORECASE | re.DOTALL)
 
     for i in lines:
         # Ignore comments
@@ -80,6 +81,20 @@ def parse(e: str) -> list:
             tokens.append("quoteClose")
             tokens.append("closeParen")
             tokens.append("semicolon")
+            continue
+
+        # Match if statements
+        ifMatch = re.match(ifPattern, i)
+        if ifMatch:
+            tokens.append("if")
+            tokens.append("openParen")
+            tokens.append(ifMatch.group(1))  # First variable
+            tokens.append(ifMatch.group(2))  # Comparator
+            tokens.append(ifMatch.group(3))  # Second variable
+            tokens.append("closeParen")
+            tokens.append("openBrace")
+            tokens.append(ifMatch.group(4))  # Body of the if statement
+            tokens.append("closeBrace")
             continue
 
     return tokens
@@ -170,6 +185,47 @@ def compile(tokens: list) -> None:
             else:
                 print("Syntax error in variable declaration.")
                 break
+        elif tokens[i] == "if":
+            # Handle if statements with type conversion
+            if (
+                i + 9 < len(tokens) and
+                tokens[i + 1] == "openParen" and
+                tokens[i + 6] == "closeParen" and
+                tokens[i + 7] == "openBrace" and
+                tokens[i + 8] == "closeBrace"
+            ):
+                var1 = tokens[i + 2]
+                comparator = tokens[i + 3]
+                var2 = tokens[i + 4]
+
+                # Check if both variables exist
+                if var1 in variables and var2 in variables:
+                    val1 = variables[var1]
+                    val2 = variables[var2]
+
+                    # Convert values to integers for numeric comparison
+                    try:
+                        val1 = int(val1)
+                        val2 = int(val2)
+                    except ValueError:
+                        pass  # Leave as string for non-numeric comparison
+
+                    # Perform the comparison
+                    if comparator == "==":
+                        condition = val1 == val2
+                    elif comparator == "!=":
+                        condition = val1 != val2
+                    elif comparator == "===":
+                        condition = val1 == val2
+                    elif comparator == "<":
+                        condition = val1 < val2
+                    elif comparator == ">":
+                        condition = val1 > val2
+
+                    # Execute the block if condition is true
+                    if condition:
+                        print(f"Condition met: {var1} {comparator} {var2}")
+                i += 10
         else:
             print(f"Unexpected token: {tokens[i]}")
             break

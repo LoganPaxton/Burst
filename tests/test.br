@@ -15,6 +15,17 @@ var inter = "Passed";
 print(i"${inter}");
 
 # Prompt Test
-print("Prompt Test: ");
-var promptTest = prompt("Pass?");
-print(promptTest);
+# print("Prompt Test: ");
+# var promptTest = prompt("Pass?");
+# print(promptTest);
+
+var x = "1"
+var y = "2"
+
+if (x == y) {
+    print("X is equal to Y");
+}
+
+if (x != y) {
+    print("X is not equal to Y");
+}
