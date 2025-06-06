@@ -20,6 +20,8 @@ def tokenize(code: str) -> list:
             tokens.append(("VAR", line))
         elif line.startswith("if"):
             tokens.append(("IF", line))
+        elif re.match(r'[a-zA-Z_][a-zA-Z0-9_]*\s*[\+\-\*/]\s*[a-zA-Z0-9_"]+', line):
+            tokens.append(("EXPR", line))
         else:
             tokens.append(("UNKNOWN", line))
 
@@ -93,5 +95,38 @@ def compiler(tokens: list) -> None:
                 if body_to_run:
                     inner_tokens = tokenize(body_to_run)
                     compiler(inner_tokens)
+
+        elif token_type == "EXPR":
+            match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*([\+\-\*/])\s*("?[a-zA-Z0-9_]+"?)', content)
+            if match: 
+                var_name, operator, value = match.groups()
+
+                if var_name not in vars:
+                    print(f"COMPILE-TIME ERROR: Variable '{var_name} is not defined.'")
+                    continue
+                
+            if value.startswith('"') and value.endswith('"'):
+                value = value.strip('"')
+            elif value.isdigit():
+                value = int(value)
             else:
-                print("COMPILE-TIME ERROR: Syntax error in if-statement.")
+                value = vars.get(value, 0)
+            
+
+            try:
+                current = int(vars[var_name])
+                val = int(value)
+            except ValueError:
+                print(f"COMPILE-TIME ERROR: Invalid arithmetic on non-integer values.")
+                continue
+
+            if operator == "+":
+                vars[var_name] = str(current + val)
+            elif operator == "-":
+                vars[var_name] = str(current - val)
+            elif operator == "*":
+                vars[var_name] = str(current * val)
+            elif operator == "/":
+                vars[var_name] = str(current // val if val != 0 else 0)
+        else:
+            print("COMPILE-TIME ERROR: Syntax error in if-statement.")
