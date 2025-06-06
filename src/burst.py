@@ -1,26 +1,15 @@
-# -----------
-#   IMPORTS
-# -----------
-
 import re
 
-# ---------------------
-#   RUNTIME FUNCTIONS
-# ---------------------
-
-def read_file(file: str ) -> str:
+def read_file(file: str) -> str:
     with open(file, "r") as f:
         return f.read()
-
-# ------------- 
-#   TOKENIZER
-# -------------
 
 def tokenize(code: str) -> list:
     tokens = []
     lines = code.strip().splitlines()
 
     for line in lines:
+        line = line.strip()
 
         if not line or line.startswith("#"):
             continue
@@ -36,27 +25,34 @@ def tokenize(code: str) -> list:
 
     return tokens
 
-# ------------
-#   COMPILER
-# ------------
-
 def compiler(tokens: list) -> None:
-
     vars = {}
 
     for token_type, content in tokens:
         if token_type == "PRINT":
-            match = re.match(r'print\(("([^"]*)"|[a-zA-Z_][a-zA-Z0-9_]*)\);', content)
+            match = re.match(
+                r'print\((?:(?P<quoted>"[^"]*")|(?P<identifier>[a-zA-Z_][a-zA-Z0-9_]*)|i"(?P<interpolated>[^"]*)")\)\s*;?$',
+                content
+            )
             if match:
-                val = match.group(1)
-                if match.group(2) is not None:
-                    print(match.group(2)) 
-                else:
-                    print(vars.get(val, f"Error: '{val}' is not defined"))
+                if match.group("quoted") is not None:
+                    print(match.group("quoted")[1:-1])
+                elif match.group("identifier") is not None:
+                    var_name = match.group("identifier")
+                    print(vars.get(var_name, f"Error: '{var_name}' is not defined"))
+                elif match.group("interpolated") is not None:
+                    interpolated = match.group("interpolated")
+                    for name, value in vars.items():
+                        interpolated = interpolated.replace(f"${{{name}}}", value)
+                    print(interpolated)
             else:
                 print("COMPILE-TIME ERROR: Invalid print statement.")
+
         elif token_type == "VAR":
-            match = re.match(r'var\s([a-zA-Z_][a-zA-Z0-9_]*)\s=\s(?:"([^"]*)"|input\(\));', content)
+            match = re.match(
+                r'var\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(?:"([^"]*)"|input\(\))\s*;?$',
+                content
+            )
             if match:
                 var = match.group(1)
                 val = match.group(2)
@@ -66,25 +62,36 @@ def compiler(tokens: list) -> None:
                     vars[var] = input("")
             else:
                 print("COMPILE-TIME ERROR: Syntax error in variable declaration.")
+
         elif token_type == "IF":
-            match = re.match(r'if\s*\[\s*(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*))\s*(==|!=|<|>)\s*(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*))\s*\]\s*=>\s*\((.+)\);', content)
+            match = re.match(
+                r'if\s*\[\s*(?:"([^"]*)"|([A-Za-z_][A-Za-z0-9_]*))\s*'
+                r'(==|!=|<|>)\s*'
+                r'(?:"([^"]*)"|([A-Za-z_][A-Za-z0-9_]*))\s*\]\s*'
+                r'=>\s*\((.*?)\)'
+                r'(?:\s*else\s*=>\s*\((.*?)\))?\s*;?$',
+                content
+            )
             if match:
                 left = match.group(1) or vars.get(match.group(2), "")
                 operator = match.group(3)
                 right = match.group(4) or vars.get(match.group(5), "")
-                body = match.group(6)
+                if_body = match.group(6)
+                else_body = match.group(7)
 
-                if operator == "==" and left == right:
-                    inner_tokens = tokenize(body)
-                    compiler(inner_tokens)
-                elif operator == "!=" and left != right:
-                    inner_tokens = tokenize(body)
-                    compiler(inner_tokens)
-                elif operator == "<" and left < right:
-                    inner_tokens = tokenize(body)
-                    compiler(inner_tokens)
-                elif operator == ">" and left > right:
-                    inner_tokens = tokenize(body)
+                condition_result = False
+                if operator == "==":
+                    condition_result = left == right
+                elif operator == "!=":
+                    condition_result = left != right
+                elif operator == "<":
+                    condition_result = left < right
+                elif operator == ">":
+                    condition_result = left > right
+
+                body_to_run = if_body if condition_result else else_body
+                if body_to_run:
+                    inner_tokens = tokenize(body_to_run)
                     compiler(inner_tokens)
             else:
                 print("COMPILE-TIME ERROR: Syntax error in if-statement.")
