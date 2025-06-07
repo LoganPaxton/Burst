@@ -1,20 +1,13 @@
-# This is a file for system testing. I wouldn't recommend modifing it.
+var bool = true
+var int = 1
+var string = "string"
+var input = input()
 
-# Printing Test
-print("Printing Test:");
-print("Passed");
-
-# Variable and Printing Variable Test
-print("Variable and Printing Variable Test:");
-var good = "Passed";
-print(good);
-
-# String Interpolation Test
-print("Interpolation Test:");
-var inter = "Passed";
-print(i"${inter}");
-
-# Prompt Test
-print("Prompt Test: ");
-var promptTest = prompt("Pass?");
-print(promptTest);
+bool + 1
+print(bool)
+int + 1
+print(int)
+string + 1
+print(string)
+input + 1
+print(input)
