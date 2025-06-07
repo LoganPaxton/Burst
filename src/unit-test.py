@@ -1,4 +1,7 @@
+import unittest
 import re
+from unittest.mock import patch, mock_open
+from burst import tokenize, compiler
 
 def read_file(file: str) -> str:
     with open(file, "r") as f:
@@ -94,7 +97,7 @@ def compiler(tokens: list) -> None:
                 left = left_raw if left_raw is not None else vars.get(left_var, "")
                 right = right_raw if right_raw is not None else vars.get(right_var, "")
 
-                condition_result = False
+                condition_result = False 
                 try:
                     if operator == "==":
                         condition_result = left == right
@@ -105,7 +108,7 @@ def compiler(tokens: list) -> None:
                     elif operator == ">":
                         condition_result = left > right
                     elif operator == ">=":
-                        condition_result = left >= right
+                        condition_result = left >= right 
                     elif operator == "<=":
                         condition_result = left <= right
                 except Exception as e:
@@ -138,7 +141,7 @@ def compiler(tokens: list) -> None:
                     value = vars[raw_val]
                     if not isinstance(value, int):
                         print(f"COMPILE-TIME ERROR: Cannot perform arithmetic with non-integer '{raw_val}'.")
-                        continue
+                        continue 
                 else:
                     print(f"COMPILE-TIME ERROR: Unknown variable or invalid number '{raw_val}'.")
                     continue
@@ -146,12 +149,11 @@ def compiler(tokens: list) -> None:
                 current = vars[var_name]
                 if not isinstance(current, int):
                     print(f"COMPILE-TIME ERROR: Variable '{var_name}' is not an integer.")
-                    continue
-
+                    continue 
                 if operator == "+":
                     vars[var_name] = current + value
                 elif operator == "-":
-                    vars[var_name] = current - value
+                    vars[var_name] = current - value 
                 elif operator == "*":
                     vars[var_name] = current * value
                 elif operator == "/":
@@ -179,3 +181,72 @@ def compiler(tokens: list) -> None:
                     print(f"INCLUDE ERROR: File '{include_path}' not found.")
             else:
                 print("COMPILE-TIME ERROR: Invalid include statement.")
+
+class TestCompilerFunctions(unittest.TestCase):
+
+    def test_read_file(self):
+        with patch("builtins.open", mock_open(read_data="sample data")) as mock_file:
+            self.assertEqual(read_file("dummy.txt"), "sample data")
+            mock_file.assert_called_once_with("dummy.txt", "r")
+
+    def test_tokenize(self):
+        code = """
+        # This is a comment
+        print("Hello, World");
+        var x = 5;
+        if [x == 5] => (print("x is five"));
+        x + 1;
+        include("file.txt");
+        """
+        expected_tokens = [
+            ("PRINT", 'print("Hello, World");'),
+            ("VAR", "var x = 5;"),
+            ("IF", 'if [x == 5] => (print("x is five"));'),
+            ("EXPR", "x + 1;"),
+            ("INCLUDE", 'include("file.txt");'),
+        ]
+        self.assertEqual(tokenize(code), expected_tokens)
+
+    def test_compiler_print_literal(self):
+        tokens = [("PRINT", 'print("Hello, World");')]
+        with patch('builtins.print') as mocked_print:
+            compiler(tokens)
+            mocked_print.assert_called_once_with("Hello, World")
+
+    def test_compiler_print_undefined_variable(self):
+        tokens = [("PRINT", 'print(unknownVar);')]
+        with patch('builtins.print') as mocked_print:
+            compiler(tokens)
+            mocked_print.assert_called_once_with("Error: 'unknownVar' is not defined")
+
+    def test_compiler_variable_declaration(self):
+        tokens = [("VAR", 'var x = 10;'), ("PRINT", 'print(x);')]
+        with patch('builtins.print') as mocked_print:
+            compiler(tokens)
+            mocked_print.assert_called_once_with(10)
+
+    def test_compiler_if_statement_true(self):
+        tokens = [("VAR", 'var x = 10;'), ("IF", 'if [x == 10] => (print("x is ten"));')]
+        with patch('builtins.print') as mocked_print:
+            compiler(tokens)
+            mocked_print.assert_called_once_with("x is ten")
+
+    def test_compiler_if_statement_false_with_else(self):
+        tokens = [("VAR", 'var x = 10;'), ("IF", 'if [x == 5] => (print("x is five")) else => (print("x is not five"));')]
+        with patch('builtins.print') as mocked_print:
+            compiler(tokens)
+            mocked_print.assert_called_once_with("x is not five")
+
+    def test_compiler_invalid_expression(self):
+        tokens = [("EXPR", 'x + "string";')]
+        with patch('builtins.print') as mocked_print:
+            compiler(tokens)
+            mocked_print.assert_called_once_with("COMPILE-TIME ERROR: Arithmetic on string values is not allowed.")
+
+    def test_compiler_include_file_not_found(self):
+        tokens = [("INCLUDE", 'include("non_existent_file.txt");')]
+        with patch('builtins.print') as mocked_print, patch('__main__.read_file', side_effect=FileNotFoundError):
+            compiler(tokens)
+            mocked_print.assert_called_once_with("INCLUDE ERROR: File 'non_existent_file.txt' not found.")
+
+unittest.main(argv=[''], exit=False)
