@@ -1,13 +1,1 @@
-var bool = true
-var int = 1
-var string = "string"
-var input = input()
-
-bool + 1
-print(bool)
-int + 1
-print(int)
-string + 1
-print(string)
-input + 1
-print(input)
+if [1 == 1] => (print("Test")) else => (print("What?"));
