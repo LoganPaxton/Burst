@@ -1,1 +1,0 @@
-print("The build command is depricated, please use the 'burst.py file")

@@ -1,8 +1,13 @@
 import re
 from tokenizer import tokenize
 from utils import read_file
+from exceptions import *
 
-def compile(tokens: list) -> None:
+
+def compile(tokens: list, tokenize_func=None) -> None:
+    if tokenize_func is None:
+        tokenize_func = tokenize
+
     vars = {}
 
     for token_type, content in tokens:
@@ -16,14 +21,16 @@ def compile(tokens: list) -> None:
                     print(match.group("quoted"))
                 elif match.group("identifier") is not None:
                     var_name = match.group("identifier")
-                    print(vars.get(var_name, f"Error: '{var_name}' is not defined"))
+                    if var_name not in vars:
+                        raise UndefinedVariableError(var_name)
+                    print(vars[var_name])
                 elif match.group("interpolated") is not None:
                     interpolated = match.group("interpolated")
                     for name, value in vars.items():
                         interpolated = interpolated.replace(f"${{{name}}}", str(value))
                     print(interpolated)
             else:
-                print("COMPILE-TIME ERROR: Invalid print statement.")
+                raise InvalidPrintStatement(value=content)
 
         elif token_type == "VAR":
             match = re.match(
@@ -34,60 +41,90 @@ def compile(tokens: list) -> None:
                 var = match.group(1)
                 val = match.group(2)
                 if val is not None:
-                    vars[var] = val  # string
+                    vars[var] = val
                 elif match.group(4) is not None:
-                    vars[var] = int(match.group(4))  # int
+                    vars[var] = int(match.group(4))
                 elif match.group(3) is not None:
-                    vars[var] = match.group(3) == "true"  # bool
+                    vars[var] = match.group(3) == "true"
                 else:
                     vars[var] = input("")
             else:
-                print("COMPILE-TIME ERROR: Syntax error in variable declaration.")
+                raise InvalidVarDeclaration(value=content)
 
         elif token_type == "IF":
-            match = re.match(
-                r'if\s*\[\s*(?:"([^"]*)"|([A-Za-z_][A-Za-z0-9_]*))\s*'
-                r'(==|!=|<|>|>=|<=)\s*'
-                r'(?:"([^"]*)"|([A-Za-z_][A-Za-z0-9_]*))\s*\]\s*'
-                r'=>\s*\((.*?)\)'
-                r'(?:\s*else\s*=>\s*\((.*?)\))?\s*;?$',
-                content.strip()
-            )
-            if match:
-                left_raw = match.group(1)
-                left_var = match.group(2)
-                operator = match.group(3)
-                right_raw = match.group(4)
-                right_var = match.group(5)
-                if_body = match.group(6)
-                else_body = match.group(7)
+            line = content.strip().rstrip(";")
 
-                left = left_raw if left_raw is not None else vars.get(left_var, "")
-                right = right_raw if right_raw is not None else vars.get(right_var, "")
+            # Split IF and optional ELSE
+            if " else => " in line:
+                if_part, else_part = line.split(" else => ", 1)
+                else_body = else_part.strip()[1:-1]  # remove ()
+            else:
+                if_part = line
+                else_body = None
 
-                condition_result = False
-                try:
-                    if operator == "==":
-                        condition_result = left == right
-                    elif operator == "!=":
-                        condition_result = left != right
-                    elif operator == "<":
-                        condition_result = left < right
-                    elif operator == ">":
-                        condition_result = left > right
-                    elif operator == ">=":
-                        condition_result = left >= right
-                    elif operator == "<=":
-                        condition_result = left <= right
-                except Exception as e:
-                    print(f"COMPILE-TIME ERROR: Failed condition evaluation: {e}")
-                    continue
+            # Parse IF
+            if_part = if_part.replace("if", "", 1).strip()
 
-                body_to_run = if_body if condition_result else else_body
-                if body_to_run:
-                    inner_tokens = tokenize(body_to_run.strip())
-                    compile(inner_tokens)
+            cond_part, then_part = if_part.split("=>", 1)
+            cond_part = cond_part.strip()[1:-1]   # remove [ ]
+            then_body = then_part.strip()[1:-1]   # remove ( )
 
+            # Parse condition
+            for op in ["==", "!=", ">=", "<=", ">", "<"]:
+                if op in cond_part:
+                    left_raw, right_raw = map(str.strip, cond_part.split(op))
+                    operator = op
+                    break
+            else:
+                raise InvalidConditional(content)
+
+            # Resolve left operand
+            if left_raw.startswith('"') and left_raw.endswith('"'):
+                left = left_raw[1:-1]
+            elif left_raw.isdigit():
+                left = int(left_raw)
+            else:
+                if left_raw not in vars:
+                    raise UndefinedVariableError(left_raw)
+                left = vars[left_raw]
+
+
+            # Resolve right operand
+            if right_raw.startswith('"') and right_raw.endswith('"'):
+                right = right_raw[1:-1]
+            elif right_raw.isdigit():
+                right = int(right_raw)
+            else:
+                if right_raw not in vars:
+                    raise UndefinedVariableError(right_raw)
+                right = vars[right_raw]
+
+
+            # Evaluate condition
+            try:
+                if operator == "==":
+                    condition_result = left == right
+                elif operator == "!=":
+                    condition_result = left != right
+                elif operator == ">":
+                    condition_result = left > right
+                elif operator == "<":
+                    condition_result = left < right
+                elif operator == ">=":
+                    condition_result = left >= right
+                elif operator == "<=":
+                    condition_result = left <= right
+            except Exception as e:
+                raise InvalidConditional(str(e))
+
+            # Execute branch
+            body_to_run = then_body if condition_result else else_body
+            if body_to_run:
+                inner_tokens = tokenize_func(body_to_run.strip())
+                compile(inner_tokens, tokenize_func=tokenize_func)
+
+
+            
         elif token_type == "EXPR":
             match = re.match(
                 r'([a-zA-Z_][a-zA-Z0-9_]*)\s*([\+\-\*/])\s*(?:"([^"]*)"|([a-zA-Z_][a-zA-Z0-9_]*|\d+))\s*;?$',
@@ -97,27 +134,22 @@ def compile(tokens: list) -> None:
                 var_name, operator, raw_str, raw_val = match.groups()
 
                 if var_name not in vars:
-                    print(f"COMPILE-TIME ERROR: Variable '{var_name}' is not defined.")
-                    continue
+                    raise UndefinedVariableError(var_name)
 
                 if raw_str is not None:
-                    print("COMPILE-TIME ERROR: Arithmetic on string values is not allowed.")
-                    continue
+                    raise ArithmeticStringError(value=raw_str)
                 elif raw_val.isdigit():
                     value = int(raw_val)
                 elif raw_val in vars:
                     value = vars[raw_val]
                     if not isinstance(value, int):
-                        print(f"COMPILE-TIME ERROR: Cannot perform arithmetic with non-integer '{raw_val}'.")
-                        continue
+                        raise NonIntegerArithmeticError(var_name=raw_val)
                 else:
-                    print(f"COMPILE-TIME ERROR: Unknown variable or invalid number '{raw_val}'.")
-                    continue
+                    raise InvalidExpressionSyntax(value=raw_val)
 
                 current = vars[var_name]
                 if not isinstance(current, int):
-                    print(f"COMPILE-TIME ERROR: Variable '{var_name}' is not an integer.")
-                    continue
+                    raise TargetNotIntegerError(var_name=var_name)
 
                 if operator == "+":
                     vars[var_name] = current + value
@@ -128,7 +160,7 @@ def compile(tokens: list) -> None:
                 elif operator == "/":
                     vars[var_name] = current // value if value != 0 else 0
             else:
-                print("COMPILE-TIME ERROR: Invalid expression syntax.")
+                raise InvalidExpressionSyntax(value=content)
 
         elif token_type == "INCLUDE":
             match = re.match(r'include\("([^"]+)"\)\s*;?$', content.strip())
@@ -136,7 +168,7 @@ def compile(tokens: list) -> None:
                 include_path = match.group(1)
                 try:
                     code = read_file(include_path)
-                    included_tokens = tokenize(code)
+                    included_tokens = tokenize_func(code)
                     exported_vars = {}
                     for ttype, tcontent in included_tokens:
                         if ttype == "EXPORT":
@@ -147,6 +179,6 @@ def compile(tokens: list) -> None:
                                 exported_vars[var_name] = var_value
                     vars.update(exported_vars)
                 except FileNotFoundError:
-                    print(f"INCLUDE ERROR: File '{include_path}' not found.")
+                    raise FileNotFoundError(f"File '{include_path}' not found.")
             else:
-                print("COMPILE-TIME ERROR: Invalid include statement.")
+                raise InvalidIncludeStatement(value=content)
