@@ -1,51 +1,42 @@
 import os
+import sys
 from utils import calculate_sha256, read_file
 from tokenizer import tokenize
 from compiler import compile
 
 CACHE_DIR = ".bcache"
 
-def precompile(file_path):
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(file_path)
+import os
+import sys
+from contextlib import redirect_stdout
 
+def save_cache(file_path):
+    sha256 = calculate_sha256(file_path)
+
+    cache_path = os.path.join(CACHE_DIR, f"{sha256}.txt")
     os.makedirs(CACHE_DIR, exist_ok=True)
 
+    with open(cache_path, "w") as f:
+        with redirect_stdout(f):
+            cont = read_file(file_path)
+            toks = tokenize(cont)
+            compile(toks)
+            
+    return cache_path
+
+def precompile(file_path):
+
     sha256 = calculate_sha256(file_path)
-    if not sha256:
+
+    if not os.path.exists(f"{CACHE_DIR}/{sha256}.txt"):
         return False
 
-    cache_file = f"{CACHE_DIR}/{sha256}.txt"
+    cont = read_file(f"{CACHE_DIR}/{sha256}.txt")
+    content = cont.split("\n")
 
-    if os.path.exists(cache_file):
-        with open(cache_file, "r") as f:
-            cached_code = f.read()
-
-        tokens = tokenize(cached_code)
-        compile(tokens)
-        return True
-
-    source = read_file(file_path)
-    tokens = tokenize(source)
-
-    output_lines = []
-
-    def capture_print(*args, **kwargs):
-        output_lines.append(" ".join(map(str, args)))
-
-    import builtins
-    original_print = builtins.print
-    builtins.print = capture_print
-
-    try:
-        compile(tokens)
-    finally:
-        builtins.print = original_print
-
-    with open(cache_file, "w") as f:
-        f.write("\n".join(output_lines))
-
-    for line in output_lines:
-        print(line)
-
-    return False
+    for i in content:
+        if i == "":
+            continue
+        print(i.strip())
+    
+    return True

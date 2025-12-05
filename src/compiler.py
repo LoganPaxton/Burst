@@ -123,8 +123,6 @@ def compile(tokens: list, tokenize_func=None) -> None:
                 inner_tokens = tokenize_func(body_to_run.strip())
                 compile(inner_tokens, tokenize_func=tokenize_func)
 
-
-            
         elif token_type == "EXPR":
             match = re.match(
                 r'([a-zA-Z_][a-zA-Z0-9_]*)\s*([\+\-\*/])\s*(?:"([^"]*)"|([a-zA-Z_][a-zA-Z0-9_]*|\d+))\s*;?$',
@@ -182,3 +180,43 @@ def compile(tokens: list, tokenize_func=None) -> None:
                     raise FileNotFoundError(f"File '{include_path}' not found.")
             else:
                 raise InvalidIncludeStatement(value=content)
+            
+        elif token_type == "FUNC":
+            match = re.match(r'func\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\((?P<args>[^)]*)\)\s*=>\s*\((?P<body>.*?)\)\s*;?$', content.strip())
+            if match:
+                func_name = match.group(1)
+                args = match.group(2)
+                body = match.group(3)
+
+                vars[func_name] = {
+                    "type": "function",
+                    "params": [arg.strip() for arg in args.split(",") if arg.strip()],
+                    "body": body
+                }
+
+        elif token_type == "UNKNOWN":
+            call_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*;?$', content.strip())
+            
+            if call_match:
+                func_name = call_match.group(1)
+                passed_args_raw = call_match.group(2)
+                
+                if func_name in vars:
+                    definition = vars[func_name]
+                    
+                    is_func = isinstance(definition, dict) and definition.get("type") == "function"
+
+                    if is_func:
+                        local_vars = vars.copy()
+                        inner_tokens = tokenize_func(definition.get("body"))
+                        compile(inner_tokens, tokenize_func=tokenize_func)
+                        return 
+                    else:
+                        raise InvalidCall()
+                else:
+                    raise UndefinedVariableError(func_name)
+            
+            else:
+                raise InvalidExpressionSyntax(f"Unknown or invalid statement: {content}")
+        
+            

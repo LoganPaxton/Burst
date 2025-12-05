@@ -4,7 +4,7 @@ from unittest.mock import patch, mock_open
 from utils import read_file
 from tokenizer import tokenize
 from compiler import compile
-from exceptions import InvalidPrintStatement, UndefinedVariableError, ArithmeticStringError, TargetNotIntegerError, InvalidExpressionSyntax, InvalidVarDeclaration, InvalidConditional
+from exceptions import InvalidPrintStatement, UndefinedVariableError, ArithmeticStringError, TargetNotIntegerError, InvalidExpressionSyntax, InvalidVarDeclaration, InvalidConditional, InvalidCall
 
 
 class TestCompilerFunctions(unittest.TestCase):
@@ -45,15 +45,17 @@ class TestCompilerFunctions(unittest.TestCase):
 
     def test_compile_if_statement_true(self):
         tokens = [("VAR", 'var x = 10;'), ("IF", 'if [x == 10] => (print("x is ten"));')]
-        with patch('builtins.print') as mocked_print:
-            compile(tokens)
-            mocked_print.assert_called_once_with("x is ten")
+        with patch('tokenizer.tokenize', return_value=[("PRINT", 'print("x is ten");')]):
+            with patch('builtins.print') as mocked_print:
+                compile(tokens)
+                mocked_print.assert_called_once_with("x is ten")
 
     def test_compile_if_statement_false_with_else(self):
         tokens = [("VAR", 'var x = 10;'), ("IF", 'if [x == 5] => (print("x is five")) else => (print("x is not five"));')]
-        with patch('builtins.print') as mocked_print:
-            compile(tokens)
-            mocked_print.assert_called_once_with("x is not five")
+        with patch('tokenizer.tokenize', return_value=[("PRINT", 'print("x is not five");')]):
+            with patch('builtins.print') as mocked_print:
+                compile(tokens)
+                mocked_print.assert_called_once_with("x is not five")
 
     def test_compile_print_undefined_variable_raises_exception(self):
         tokens = [("PRINT", 'print(unknownVar);')]
@@ -82,6 +84,42 @@ class TestCompilerFunctions(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             with patch('utils.read_file', side_effect=FileNotFoundError):
                 compile(tokens)
+                
+    @patch('tokenizer.tokenize', autospec=True)
+    @patch('builtins.print')
+    def test_compile_function_definition_and_call(self, mocked_print, mocked_tokenize):
+        function_body = 'print("Executed!")'
+
+        mocked_tokenize.return_value = [("PRINT", function_body)]
+
+        tokens = [
+            ("FUNC", 'func hello() => (print("Executed!"));'),
+            ("UNKNOWN", 'hello();')
+        ]
+        
+        compile(tokens, tokenize_func=mocked_tokenize)
+
+        mocked_tokenize.assert_called_with(function_body)
+        
+        mocked_print.assert_called_once_with("Executed!")
+
+    def test_compile_call_non_function_raises_exception(self):
+        tokens = [
+            ("VAR", 'var x = 5;'),
+            ("UNKNOWN", 'x();') 
+        ]
+        with self.assertRaises(InvalidCall) as cm:
+            compile(tokens)
+        
+        self.assertIn('Invalid call', str(cm.exception))
+
+    def test_compile_call_undefined_function_raises_exception(self):
+        tokens = [
+            ("UNKNOWN", 'nonExistentFunction();') 
+        ]
+        with self.assertRaises(UndefinedVariableError) as cm:
+            compile(tokens)
+        self.assertIn('nonExistentFunction', str(cm.exception))
 
 
 if __name__ == '__main__':

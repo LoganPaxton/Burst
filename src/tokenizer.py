@@ -22,6 +22,8 @@ def tokenize(code: str) -> list:
             tokens.append(("INCLUDE", line))
         elif line.startswith("export("):
             tokens.append(("EXPORT", line))
+        elif line.startswith("func"):
+            tokens.append(("FUNC", line))
         else:
             tokens.append(("UNKNOWN", line))
 

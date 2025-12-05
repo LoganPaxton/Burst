@@ -72,3 +72,13 @@ class InvalidConditional(CompilerError):
     """Raised for general issues during conditional (if statement) evaluation."""
     def __init__(self, error_details=None, line=None):
         super().__init__("Failed conditional evaluation", error_details, line)
+
+class InvalidFunctionDefinition(CompilerError):
+    """Raised for general issues during function statement evaluation."""
+    def __init__(self, error_details=None, line=None):
+        super().__init__("Failed function evaluation", error_details, line)
+
+class InvalidCall(CompilerError):
+    """Line was not a valid function call (i.e. function without a declaration)."""
+    def __init__(self, error_details=None, line=None):
+        super().__init__("Invalid call", error_details, line)
