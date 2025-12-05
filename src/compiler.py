@@ -34,22 +34,43 @@ def compile(tokens: list, tokenize_func=None) -> None:
 
         elif token_type == "VAR":
             match = re.match(
-                r'var\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(?:"([^"]*)"|input\(\)|(true|false)|([0-9]+))\s*;?$',
-                content
+                r'^(?P<var_type>bool|int|str)\s+var\s+(?P<var_name>[a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*'
+                r'(?:"(?P<str_val>[^"]*)"|(?P<input_call>input\(\))|(?P<bool_val>true|false)|(?P<int_val>[0-9]+))\s*;?$',
+                content.strip()
             )
+            
             if match:
-                var = match.group(1)
-                val = match.group(2)
-                if val is not None:
-                    vars[var] = val
-                elif match.group(4) is not None:
-                    vars[var] = int(match.group(4))
-                elif match.group(3) is not None:
-                    vars[var] = match.group(3) == "true"
+                data = match.groupdict()
+                
+                var_type = data['var_type']
+                var_name = data['var_name']
+                
+                if data['input_call'] is not None:
+                    vars[var_name] = input(f"Enter value for {var_name} ({var_type}): ")
+
+                elif data['str_val'] is not None:
+                    raw_value = data['str_val']
+                    if var_type != "str":
+                        raise InvalidVariableType(f"Type mismatch: Expected {var_type}, but assigned string literal.", content)
+                    vars[var_name] = raw_value
+                
+                elif data['bool_val'] is not None:
+                    raw_value = data['bool_val']
+                    if var_type != "bool":
+                        raise InvalidVariableType(f"Type mismatch: Expected {var_type}, but assigned boolean literal.", content)
+                    vars[var_name] = raw_value == "true"
+                    
+                elif data['int_val'] is not None:
+                    raw_value = data['int_val']
+                    if var_type != "int":
+                        raise InvalidVariableType(f"Type mismatch: Expected {var_type}, but assigned integer literal.", content)
+                    vars[var_name] = int(raw_value)
+                    
                 else:
-                    vars[var] = input("")
+                    raise InvalidVarDeclaration(f"Missing assignment value for variable '{var_name}'.", content)
+
             else:
-                raise InvalidVarDeclaration(value=content)
+                raise InvalidVarDeclaration(f"Syntax error in variable declaration: {content}", line=content)
 
         elif token_type == "IF":
             line = content.strip().rstrip(";")

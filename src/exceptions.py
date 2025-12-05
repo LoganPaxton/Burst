@@ -82,3 +82,13 @@ class InvalidCall(CompilerError):
     """Line was not a valid function call (i.e. function without a declaration)."""
     def __init__(self, error_details=None, line=None):
         super().__init__("Invalid call", error_details, line)
+
+class InvalidVariableType(CompilerError):
+    """An invalid variable type was reached when attempting to decalre a variable."""
+    def __init__(self, error_details=None, line=None):
+        super().__init__("Invalid variable type", error_details, line)
+
+class IncorrectVariableType(CompilerError):
+    """An incorrect type was assigned when attempting to declare a variable."""
+    def __init__(self, error_details=None, line=None):
+        super().__init__("Incorrect type used", error_details, line)

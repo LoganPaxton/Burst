@@ -12,7 +12,7 @@ def tokenize(code: str) -> list:
 
         if re.match(r'^print\((?:".*"|[a-zA-Z_][a-zA-Z0-9_]*|i".*")\)\s*;?$', line):
             tokens.append(("PRINT", line))
-        elif line.startswith("var"):
+        elif re.match(r'^(bool|int|str|input)\s+var\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(?:"([^"]*)"|input\(\)|(true|false)|([0-9]+))\s*;?$', line):
             tokens.append(("VAR", line))
         elif line.startswith("if"):
             tokens.append(("IF", line))
